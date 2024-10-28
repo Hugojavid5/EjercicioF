@@ -14,10 +14,7 @@ import javafx.stage.FileChooser;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
 
 /**
  * Controlador para gestionar la interfaz de la tabla de personas.
@@ -201,5 +198,71 @@ public class PersonaController {
             }
         }
     }
+    /**
+     * Método que importa datos de un archivo CSV a la tabla.
+     *
+     * @param actionEvent Evento disparado al hacer clic en el botón de importar.
+     */
+    public void importar(ActionEvent actionEvent) {
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Importar desde CSV");
+        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("CSV Files", "*.csv"));
 
+        fileChooser.setInitialDirectory(new File(System.getProperty("user.dir")));
+
+        File file = fileChooser.showOpenDialog(btt_agregar.getScene().getWindow());
+
+        if (file != null) {
+            try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+                String line;
+                boolean firstLine = true;
+
+                while ((line = reader.readLine()) != null) {
+                    if (firstLine) {
+                        firstLine = false; // Saltar la primera línea (cabecera)
+                        continue;
+                    }
+
+                    String[] datos = line.split(",");
+
+                    // Validar que haya suficientes datos y que no estén vacíos
+                    if (datos.length == 3) {
+                        String nombre = datos[0].trim();
+                        String apellidos = datos[1].trim();
+                        Integer edad;
+
+                        // Validar que los campos no estén vacíos
+                        if (nombre.isEmpty() || apellidos.isEmpty()) {
+                            mostrarAlerta("Error de Importación", "Los campos Nombre y Apellidos no pueden estar vacíos.");
+                            continue; // Saltar este registro
+                        }
+
+                        // Validar edad
+                        try {
+                            edad = Integer.parseInt(datos[2].trim());
+                        } catch (NumberFormatException e) {
+                            mostrarAlerta("Error de Importación", "La edad debe ser un número: " + datos[2]);
+                            continue; // Saltar este registro
+                        }
+
+                        // Comprobar si la persona ya existe
+                        boolean existe = personasList.stream()
+                                .anyMatch(p -> p.getNombre().equalsIgnoreCase(nombre) && p.getApellidos().equalsIgnoreCase(apellidos) && p.getEdad() == edad);
+
+                        if (!existe) {
+                            personasList.add(new Persona(nombre, apellidos, edad));
+                        } else {
+                            mostrarAlerta("Registro Duplicado", "La persona " + nombre + " " + apellidos + " ya existe.");
+                        }
+                    } else {
+                        mostrarAlerta("Error de Importación", "Línea inválida: " + line);
+                    }
+                }
+
+                mostrarAlerta("Importación Exitosa", "Los datos han sido importados desde " + file.getAbsolutePath());
+            } catch (IOException e) {
+                mostrarAlerta("Error de Importación", "No se pudo importar el archivo: " + e.getMessage());
+            }
+        }
+    }
 }
