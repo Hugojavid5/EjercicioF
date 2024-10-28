@@ -8,14 +8,15 @@ import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
-import javafx.scene.control.Alert;
-import javafx.scene.control.Button;
-import javafx.scene.control.TableColumn;
-import javafx.scene.control.TableView;
+import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.stage.FileChooser;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 
 /**
@@ -44,6 +45,9 @@ public class PersonaController {
 
     @FXML
     private Button btt_eliminar;
+    @FXML
+    private TextField txt_filtrar; // Añade esta línea
+
 
     /** Lista observable de personas para mostrar en la tabla */
     private ObservableList<Persona> personasList = FXCollections.observableArrayList();
@@ -62,6 +66,38 @@ public class PersonaController {
         tablaPersonas.setItems(personasList);
     }
 
+    /**
+     * Abre una ventana para modificar la persona seleccionada en la tabla.
+     * Si no hay ninguna persona seleccionada, muestra una alerta al usuario.
+     * @param event Evento de acción que dispara el método
+     */
+    @FXML
+    private void abrirVentanaModificar(ActionEvent event) {
+        Persona personaSeleccionada = tablaPersonas.getSelectionModel().getSelectedItem();
+        if (personaSeleccionada == null) {
+            mostrarAlerta("No hay ninguna persona seleccionada", "Por favor, seleccione una persona para editar.");
+            return;
+        }
+
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/org/hugo/ejerciciof/NuevaPersona.fxml"));
+            Parent modalRoot = loader.load();
+            NuevaPersonaController modalController = loader.getController();
+            modalController.setPersonasList(personasList);
+            modalController.setPersonaAEditar(personaSeleccionada);
+
+            Stage modalStage = new Stage();
+            modalStage.initModality(Modality.WINDOW_MODAL);
+            modalStage.initOwner(btt_modificar.getScene().getWindow());
+            modalStage.setTitle("Editar Persona");
+            modalStage.setScene(new Scene(modalRoot));
+            modalStage.showAndWait();
+
+            tablaPersonas.refresh();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
     /**
      * Abre una nueva ventana para agregar una persona.
      * Actualiza la lista y refresca la tabla una vez se cierra la ventana de agregar.
@@ -86,39 +122,6 @@ public class PersonaController {
 
         // Refrescar la tabla después de agregar
         tablaPersonas.refresh();
-    }
-
-    /**
-     * Abre una ventana para modificar la persona seleccionada en la tabla.
-     * Si no hay ninguna persona seleccionada, muestra una alerta al usuario.
-     * @param event Evento de acción que dispara el método
-     */
-    @FXML
-    private void abrirVentanaModificar(ActionEvent event) {
-        Persona personaSeleccionada = tablaPersonas.getSelectionModel().getSelectedItem();
-        if (personaSeleccionada == null) {
-            mostrarAlerta("No hay ninguna persona seleccionada", "Por favor, seleccione una persona para editar.");
-            return;
-        }
-
-        try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/example/ejercicioe/NuevaPersona.fxml"));
-            Parent modalRoot = loader.load();
-            NuevaPersonaController modalController = loader.getController();
-            modalController.setPersonasList(personasList);
-            modalController.setPersonaAEditar(personaSeleccionada);
-
-            Stage modalStage = new Stage();
-            modalStage.initModality(Modality.WINDOW_MODAL);
-            modalStage.initOwner(btt_modificar.getScene().getWindow());
-            modalStage.setTitle("Editar Persona");
-            modalStage.setScene(new Scene(modalRoot));
-            modalStage.showAndWait();
-
-            tablaPersonas.refresh();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
     }
 
     /**
@@ -149,4 +152,54 @@ public class PersonaController {
         alert.setContentText(mensaje);
         alert.showAndWait();
     }
+
+    /**
+     * Filtra las personas en la tabla según el texto ingresado en el campo de filtro.
+     */
+    public void filtrar() {
+        String textoFiltro = txt_filtrar.getText().toLowerCase();
+
+        ObservableList<Persona> personasFiltradas = FXCollections.observableArrayList();
+
+        for (Persona persona : personasList) {
+            if (persona.getNombre().toLowerCase().contains(textoFiltro)) {
+                personasFiltradas.add(persona);
+            }
+        }
+
+        tablaPersonas.setItems(personasFiltradas);
+    }
+    /**
+     * Método que exporta la información de la tabla a un archivo CSV.
+     *
+     * @param actionEvent Evento disparado al hacer clic en el botón de exportar.
+     */
+    public void exportar(ActionEvent actionEvent) {
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Exportar a CSV");
+        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("CSV Files", "*.csv"));
+
+        fileChooser.setInitialDirectory(new File(System.getProperty("user.dir")));
+
+        File file = fileChooser.showSaveDialog(btt_agregar.getScene().getWindow());
+
+        if (file != null) {
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
+                // Escribir cabecera
+                writer.write("Nombre,Apellidos,Edad");
+                writer.newLine();
+
+                // Escribir datos
+                for (Persona persona : personasList) {
+                    writer.write(persona.getNombre() + "," + persona.getApellidos() + "," + persona.getEdad());
+                    writer.newLine();
+                }
+
+                mostrarAlerta("Exportación Exitosa", "Los datos han sido exportados a " + file.getAbsolutePath());
+            } catch (IOException e) {
+                mostrarAlerta("Error de Exportación", "No se pudo exportar el archivo: " + e.getMessage());
+            }
+        }
+    }
+
 }
